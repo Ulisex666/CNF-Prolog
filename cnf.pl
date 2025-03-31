@@ -2,7 +2,8 @@
 C-c l  -> Insert use_module(library()) 
 C-c q  -> Insert comment block 
 S-TAB  -> Expand with dabbrev 
-F10  -> Consult with ediprolog  */ 
+F10  -> Consult with ediprolog  */
+
  
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Declaracion de los operadores logicos
@@ -29,11 +30,8 @@ Se aplica de manera recursiva sobre cada elemento de /phi
 implFree(P, P) :- %% Atomo
     atomic(P).
 
-implFree(~P, ~P) :- %% Negacion de atomo
-    atomic(P).
-
-implFree(~ ~P, P):-
-    implFree(P, P).
+implFree(~P, ~Res) :- %% Negacion de fbf
+    implFree(P, Res).
 
 %% Casos compuestos. Disyuncion y conjuncion. Se elemina la
 %% implicacion en cada miembro
@@ -52,14 +50,9 @@ implFree(P --> Q, Res) :- %% Resultado de la forma ~p v q
     implFree(Q, Res2), % Recursividad en segundo miembro
     Res = ~Res1 v Res2.
 
-implFree(~(P --> Q), ~Res) :-
-    implFree(P, Res1),
-    implFree(Q, Res2),
-    Res = ~Res1 v Res2.
-
 % ?- implFree(~p ^ q --> p ^ (r --> q), R). 
-%@ R = ~ (~p^q)v p^(~r v q) ;
-%@ false.
+%@ R = ~ (~p^q)v p^(~r v q).
+
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Paso 2. Forma normal bajo negacion NNF. 

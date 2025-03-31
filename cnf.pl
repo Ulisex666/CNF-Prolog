@@ -1,10 +1,12 @@
-/* Prolog Mode Shortcuts %%
-C-c l  -> Insert use_module(library()) 
-C-c q  -> Insert comment block 
-S-TAB  -> Expand with dabbrev 
-F10  -> Consult with ediprolog  */
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Ulises Jimenez Guerrero. Universidad Veracruzana. Maestria en IA.
 
- 
+Implementacion del algoritmo CNF visto en clase de RC, capitulo 4.
+Basado en la descripcion en el libro  Logic in Computer Science: Modelling 
+and Reasoning about Systems, de M. Huth y M. Ryan. 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
+
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Declaracion de los operadores logicos
 Declaramos los operadores de negacion,
@@ -19,58 +21,54 @@ valor tiene mayor precedencia
 :- op(650, xfy, -->). % Implicacion
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-Paso 1. Eliminacion de la implicacion
-IMPL_FREE(/phi). Devuelve una formula equivalente sin implicaciones.
-Basado en la ley de Morgan, p --> q iff p ^ ~q
-Se aplica de manera recursiva sobre cada elemento de /phi
+Paso 1. Eliminacion de la implicacion en una fbf.
+implFree/2. Devuelve una formula equivalente sin implicaciones.
+Basado en la equivalencia p --> q iff p ^ ~q
+Se aplica de manera recursiva sobre cada elemento de la fbf.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-
-%% Casos base. Una literal ya se encuentra libre de implicaciones.
-implFree(P, P) :- %% Atomo
+implFree(P, P) :- %% Caso base. Literal (atomo) sin negacion.
     atomic(P).
 
-implFree(~P, ~Res) :- %% Negacion de fbf
+implFree(~P, ~Res) :- %% Negacion de fbf. Aplicacion recursiva.
     implFree(P, Res).
 
-%% Casos compuestos. Disyuncion y conjuncion. Se elemina la
+%% Casos compuestos. Disyuncion y conjuncion. Se elimina la
 %% implicacion en cada miembro
 implFree(P ^ Q, Res1 ^ Res2):- %% Conjuncion
-    implFree(P, Res1), % Recursividad en primer miembro
-    implFree(Q, Res2). % Recursividad en segundo miembro
+    implFree(P, Res1), 
+    implFree(Q, Res2). 
 
 implFree(P v Q, Res1 v Res2):- %% Disyuncion
-    implFree(P, Res1), % Recursividad en primer miembro
-    implFree(Q, Res2). % Recursividad en segundo miembro
+    implFree(P, Res1), 
+    implFree(Q, Res2). 
 
 %% Casos con implicacion. Uso de la ley de Morgan, se elimina
 %% implicacion en cada miembro resultante
 implFree(P --> Q, Res) :- %% Resultado de la forma ~p v q
-    implFree(P, Res1), % Recursividad en primer miembro
-    implFree(Q, Res2), % Recursividad en segundo miembro
+    implFree(P, Res1), 
+    implFree(Q, Res2), 
     Res = ~Res1 v Res2.
 
 % ?- implFree(~p ^ q --> p ^ (r --> q), R). 
 %@ R = ~ (~p^q)v p^(~r v q).
 
-
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Paso 2. Forma normal bajo negacion NNF. 
-NNF(IMPLFREE(/phi)). Devuelve la fbf de tal forma que solamente se niegan 
-atomos, no formas compuestas. Necesita una formula sin implicaciones. 
+nnf/2. Devuelve la fbf de tal forma que solamente se niegan 
+atomos, no formulas compuestas. Necesita una formula sin implicaciones. 
 Las literales se mantienen intactas. Se evalua cada elemento de formulas 
 compuestas no negadas. Se utilizan las leyes de Morgan para formulas
 compuestas negadas.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-
-%% Caso base. Literales. Se devuelve la formula original.
-nnf(P, P) :-
+ 
+nnf(P, P) :-  %% Caso base. Atomo sin negacion.
     atomic(P).
 
-nnf(~P, ~P) :-
+nnf(~P, ~P) :- %% Negacion de atomo.
     atomic(P).
 
-nnf(~(~P), Res) :-
+nnf(~(~P), Res) :- %% Doble negacion.
     nnf(P, Res).
 
 %% Casos compuestos. Implicacion y disyuncion NO negadas.
@@ -82,70 +80,74 @@ nnf(P v Q, Res1 v Res2) :-
     nnf(P, Res1),
     nnf(Q, Res2).
 
-nnf(~(P^Q), Res1 v Res2) :-
-    nnf(~P, Res1),
-    nnf(~Q, Res2).
+%% Conjunciones y disyunciones negadas. Leyes de Morgan.
+nnf(~(P^Q), Res) :- %% ~(p^q) iff ~p v ~q
+    nnf(~P, Res1), %% ~p
+    nnf(~Q, Res2), %% ~q
+    Res = Res1 v Res2. %% ~p v ~q
 
-nnf(~(P v Q), Res1 ^ Res2) :-
-    nnf(~P, Res1),
-    nnf(~Q, Res2).
+nnf(~(P v Q), Res) :- %% ~(pvq) iff ~p^~q
+    nnf(~P, Res1), %% ~p
+    nnf(~Q, Res2), %% ~q
+    Res = Res1^Res2. %% ~p^~q
 
 %% ?- implFree(~p ^ q --> p ^ (r --> q), IMPLFREE), nnf(IMPLFREE, NNF). 
 %@ IMPLFREE = ~ (~p^q)v p^(~r v q),
 %@ NNF = (p v ~q)v p^(~r v q) ;
 %@ false.
 
-
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Paso 3. CNF y distribucion de las conjunciones.
 CNF((/phi)).
-Funcion principal, tipo interfaz. LLama a las otras funciones definidas
-anteriormente: impl_free, nnf y a su vez una nueva funcion distr, que se 
-encargara de distribuir las conjunciones de manera adecuada, de forma que 
-todas las disyunciones esten compuestas por literales. Toma como entrada una 
-formula bien formada en logica proposicional y regresa una forma equivalente 
-en CNF. El trabajo principal lo hace cnfAux.
+Funcion principal cnf/2, tipo interfaz. LLama a las otras funciones definidas
+anteriormente: impl_free, nnf y a su vez una nueva funcion distr/3, que se 
+encarga de distribuir las conjunciones de manera adecuada. Toma como entrada
+ una formula bien formada en logica proposicional y regresa una forma 
+equivalente en CNF. El trabajo principal lo hace cnfAux/2.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-cnf(Phi, Res):-
+cnf(Phi, Res):- %% Interfaz. Pide la fbf y devuelve su equivalente Res.
     implFree(Phi, Res1),
     nnf(Res1, Res2),
-    cnfAux(Res2, Res), !.
+    cnfAux(Res2, Res), !. %% Corte para obtener solo el primer resultado.
 
-cnfAux(Psi, Psi):-
-    atomic(Psi).
+cnfAux(P, P):- %% Funcion auxiliar. Caso base. Atomo 
+    atomic(P).
 
-cnfAux(~Psi, ~Psi) :-
-    atomic(Psi).
+cnfAux(~P, ~P) :- %% Caso base. Negacion de atomo.
+    atomic(P).
 
-cnfAux(Psi1^Psi2, Res1 ^ Res2) :-
-    cnfAux(Psi1, Res1),
-    cnfAux(Psi2, Res2).
+cnfAux(P1^P2, Res1 ^ Res2) :- %% Cojuncion. Aplicar recursivamente a 
+    cnfAux(P1, Res1),           %% cada elemento.
+    cnfAux(P2, Res2).
 
-cnfAux(Psi1 v Psi2, Res):-
-    cnfAux(Psi1, Res1),
-    cnfAux(Psi2, Res2),
+cnfAux(P1 v P2, Res):-  %% Disyuncion.Aplicar cnfAux/2 a cada elemento 
+    cnfAux(P1, Res1),     %% y distribuir la disyuncion con distr/3.
+    cnfAux(P2, Res2),
     distr(Res1, Res2, Res).
 
-distr(Eta1, Eta2, Res):-
-    Eta1 = P ^ Q,
-    distr(P, Eta2, Res1),
+distr(Eta1, Eta2, Res):-  %% Caso 1, el primer elemento es una conjuncion.
+    Eta1 = P ^ Q,         %% Se ditribuye (p^q) v r iff (p v r)^(q v r).
+    distr(P, Eta2, Res1), %% A su vez, estos se distribuyen recursivamente.
     distr(Q, Eta2, Res2),
     Res = Res1 ^ Res2.
 
-distr(Eta1, Eta2, Res) :-
-    Eta2 = P ^ Q,
-    distr(Eta1, P, Res1),
+distr(Eta1, Eta2, Res) :- %% Caso 2, el segundo elemento es una conjuncion.
+    Eta2 = P ^ Q,         %% Se distribuye p v (q^r) iff (p v q)^(p v r).
+    distr(Eta1, P, Res1), %% Se aplica recursivamente.
     distr(Eta1, Q, Res2),
     Res = Res1 ^ Res2.
 
-distr(Eta1, Eta2, Eta1 v Eta2).
+distr(Eta1, Eta2, Eta1 v Eta2). %% Caso 3. Salida. Ningun elemento es
+                                %% formula compuesta.
     
-% ?- cnf(~p ^ q --> p ^ (r --> q), R).
-%@ R = ((p v ~q)v p)^((p v ~q)v~r v q). 
-
-% ?- cnf(~p^q --> p^(r --> q), CNF).
+% ?- cnf(~p ^ q --> p ^ (r --> q), CNF).
 %@ CNF = ((p v ~q)v p)^((p v ~q)v~r v q).
 
 % ?- cnf(r --> (s --> (t ^ s --> r)), CNF).
 %@ CNF = ~r v ~s v (~t v ~s)v r.
+
+% ?- cnf((p ^ q) v (r ^ s), R).
+%@ R = ((p v r)^(p v s))^(q v r)^(q v s).
+
+
